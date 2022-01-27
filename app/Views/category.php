@@ -4,7 +4,7 @@
 
         <div class="row narrow">
             <div class="col-full s-content__header" data-aos="fade-up">
-                <h1 class="display-1 display-1--with-line-sep">Category: <?php echo $category[0]['namec']; ?></h1>
+                <h1 class="display-1 display-1--with-line-sep">Category: <?php echo $category['namec']; ?></h1>
                 <p class="lead">Dolor similique vitae. Exercitationem quidem occaecati iusto. Id non vitae enim quas error dolor maiores ut. Exercitationem earum ut repudiandae optio veritatis animi nulla qui dolores.</p>
             </div>
         </div>
@@ -49,11 +49,11 @@
                 <div class="col-full">
                     <nav class="pgn" data-aos="fade-up">
                         <ul>
-                            <li><a class="pgn__prev" <?php echo $_GET['page'] > 1 ? 'href="'.base_url().'/index.php/dashboard/category/'.$category[0]['idcat'].'/?page='.($_GET['page']-1).'"' : '';?>>Prev</a></li>
+                            <li><a class="pgn__prev" <?php echo $_GET['page'] > 1 ? 'href="'.base_url().'/index.php/dashboard/category/'.$category['idcat'].'/?page='.($_GET['page']-1).'"' : '';?>>Prev</a></li>
                             <?php for($i=0;$i<$pages;$i++){?>
-                                <li><a class="pgn__num <?php echo $_GET['page'] == $i+1 ? 'current' : '';?>" href="<?php echo base_url().'/index.php/dashboard/category/'.$category[0]['idcat'].'/?page='.($i+1); ?>"><?php echo $i+1; ?></a></li>
+                                <li><a class="pgn__num <?php echo $_GET['page'] == $i+1 ? 'current' : '';?>" href="<?php echo base_url().'/index.php/dashboard/category/'.$category['idcat'].'/?page='.($i+1); ?>"><?php echo $i+1; ?></a></li>
                             <?php } ?>
-                            <li><a class="pgn__next" <?php echo $_GET['page'] < $pages ? 'href="'.base_url().'/index.php/dashboard/category/'.$category[0]['idcat'].'/?page='.($_GET['page']+1).'"' : '';?>>Next</a></li>
+                            <li><a class="pgn__next" <?php echo $_GET['page'] < $pages ? 'href="'.base_url().'/index.php/dashboard/category/'.$category['idcat'].'/?page='.($_GET['page']+1).'"' : '';?>>Next</a></li>
                         </ul>
                     </nav>
                 </div>

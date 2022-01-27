@@ -161,9 +161,6 @@
 
                                     <div class="comment__meta">
                                         <div class="comment__time"><?php echo date('d-m-Y',strtotime($com['added_m']));?></div>
-                                        <div class="comment__reply">
-                                            <a class="comment-reply-link" href="#0">Reply</a>
-                                        </div>
                                     </div>
                                 </div>
 
@@ -193,13 +190,27 @@
                         <fieldset>
 
                             <div class="form-field">
-                                <input name="cname" id="cname" class="full-width" placeholder="Your Name*" value="" type="text">
+                                <?php 
+                                    if(isset($_SESSION['user'])){
+
+                                        echo "<input name='cname' id='cname' class='full-width' value='".$_SESSION['user']['username']."' type='text'>";
+                                    }else{
+                                        echo "<input name='cname' id='cname' class='full-width' placeholder='Your Name*' value='' type='text'>";
+                                    }
+                                
+                                ?>
                             </div>
 
-                            <div class="form-field">
-                                <input name="cemail" id="cemail" class="full-width" placeholder="Your Email*" value="" type="text">
-                            </div>
+                            <?php 
+                                if(!isset($_SESSION['user'])){
 
+                                    echo "<div class='form-field'>
+                                            <input name='cemail' id='cemail' class='full-width' placeholder='Your Email*' value='' type='email'>
+                                          </div>";
+                                }else{
+                                    echo "<input name='cemail' id='cemail' value='".$_SESSION['user']['email']."' type='hidden'>";
+                                }
+                            ?>
                             <div class="message form-field">
                                 <textarea name="cmessage" id="cmessage" class="full-width" placeholder="Your Message*"></textarea>
                             </div>

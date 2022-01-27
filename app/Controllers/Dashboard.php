@@ -24,29 +24,81 @@ class Dashboard extends BaseController{
         
 	}
 
+    public function getPosts(){
+
+        $postsModel    = new PostsModel();
+        $posts         = $postsModel->findAll();
+
+        return $posts;
+
+    }
+
+    public function getPostsByPage($posts_Pages, $begin){
+
+        $postsModel = new PostsModel();
+        $posts      = $postsModel->select('*')
+                                 ->join('users', 'users.iduser = posts.author')
+                                 ->join('categories', 'categories.idcat = posts.category')
+                                 ->limit($posts_Pages,$begin)
+                                 ->find();
+
+        return $posts;
+    }
+
+    public function getTotalPosts(){
+
+        $resultPosts    = $this->getPosts();
+        $totalpostsDB   = count($resultPosts);
+
+        return $totalpostsDB;
+
+    }
+
     public function pagination(){
 
         if(!$_GET){
             $_GET['page'] = 1;
         }
 
-        $postsModel     = new PostsModel();
-        $result         = $postsModel->findAll();
         $posts_Pages    = 6;
-        $totalpostsDB   = count($result);
+        $totalpostsDB   = $this->getTotalPosts();
         $pages          = ceil($totalpostsDB/$posts_Pages);
         $begin          = ($_GET['page']-1) * $posts_Pages;
-
-        $posts = $postsModel->select('*')
-                            ->join('users', 'users.iduser = posts.author')
-                            ->join('categories', 'categories.idcat = posts.category')
-                            ->limit($posts_Pages,$begin)
-                            ->find();
+        $posts          = $this->getPostsByPage($posts_Pages,$begin);
         
         $data['posts'] = $posts;
         $data['pages'] = $pages;
 
         return $data;
+    }
+
+    public function getUser($username){
+
+        $userModel  = new UserModel();
+        $user       = $userModel->where('username',$username)
+                                ->first();
+
+        return $user;
+    }
+
+    public function verifyPassword($username,$password){
+
+        $passw = preg_replace('([^A-Za-z0-9])','',$password);
+
+        $user = $this->getUser($username);
+
+        return (password_verify($passw,$user['passwordu']));
+
+    }
+
+    public function createUserSession($username){
+
+        $user = $this->getUser($username);
+
+        $_SESSION['user']['username']   = $user['username'];
+        $_SESSION['user']['iduser']     = $user['iduser'];
+        $_SESSION['user']['email']      = $user['mail'];
+
     }
 
     public function login(){
@@ -69,19 +121,14 @@ class Dashboard extends BaseController{
 
             if($validation->withRequest($this->request)->run()){
 
-                $userModel  = new UserModel();
-                $user       = $userModel->where('username',$_POST['user'])->findAll();
-
+                $user = $this->getUser($_POST['user']);
+                                        
                 if($user){
 
-                    $passw = preg_replace('([^A-Za-z0-9])','',$_POST['password']);
+                    if($this->verifyPassword($_POST['user'],$_POST['password'])){
 
-                    if(password_verify($passw,$user[0]['passwordu'])){
-
-                        $_SESSION['user']['username']   = $user[0]['username'];
-                        $_SESSION['user']['iduser']     = $user[0]['iduser'];
-
-                        $data['user'] = $user[0];
+                        $this->createUserSession($_POST['user']);
+                        
                         return redirect()->to(base_url());
 
                     }else{
@@ -97,7 +144,6 @@ class Dashboard extends BaseController{
             }else{
 
                 $errors = $validation->getErrors();
-                print_r($errors);
                 $data['error'] = $errors;
                 $this->loadViews('login',$data);
             }
@@ -106,40 +152,67 @@ class Dashboard extends BaseController{
         }
     }
 
+    public function getTotalPostsbySearch($search){
+
+        $postsModel = new PostsModel();
+        $results    = $postsModel->join('users', 'users.iduser = posts.author')
+                                 ->join('categories', 'categories.idcat = posts.category')
+                                 ->like('LOWER(title)',strtolower($search))
+                                 ->orLike('LOWER(intro)',strtolower($search))
+                                 ->orLike('LOWER(username)',strtolower($search))
+                                 ->find();
+        return $results;
+
+    }
+
+    public function getPostsbySearch($search, $posts_Pages, $begin){
+
+        $postsModel = new PostsModel();
+        $posts      = $postsModel->join('users', 'users.iduser = posts.author')
+                                 ->join('categories', 'categories.idcat = posts.category')
+                                 ->like('LOWER(title)',strtolower($search))
+                                 ->orLike('LOWER(intro)',strtolower($search))
+                                 ->orLike('LOWER(username)',strtolower($search))
+                                 ->limit($posts_Pages,$begin)
+                                 ->find();
+        return $posts;
+
+    }
+
     public function search(){
 
         if($_GET['s']){
 
-            $postsModel = new PostsModel();
-
-            $results = $postsModel->select('*')
-                                  ->join('users', 'users.iduser = posts.author')
-                                  ->join('categories', 'categories.idcat = posts.category')
-                                  ->like('LOWER(title)',strtolower($_GET['s']))
-                                  ->orLike('LOWER(intro)',strtolower($_GET['s']))
-                                  ->orLike('LOWER(username)',strtolower($_GET['s']))
-                                  ->find();
+            $results = $this->getTotalPostsbySearch($_GET['s']);
 
             $posts_Pages    = 6;
             $totalpostsDB   = count($results);
             $pages          = ceil($totalpostsDB / $posts_Pages);       
             $begin          = ($_GET['page'] - 1) * $posts_Pages;
 
-            $posts = $postsModel->select('*')
-                                ->join('users', 'users.iduser = posts.author')
-                                ->join('categories', 'categories.idcat = posts.category')
-                                ->like('LOWER(title)',strtolower($_GET['s']))
-                                ->orLike('LOWER(intro)',strtolower($_GET['s']))
-                                ->orLike('LOWER(username)',strtolower($_GET['s']))
-                                ->limit($posts_Pages,$begin)
-                                ->find();
-
+            $posts = $this->getPostsbySearch($_GET['s'],$posts_Pages,$begin);
+ 
             $data['posts'] = $posts;
             $data['pages'] = $pages;
                         
             $this->loadViews('results',$data);
 
         }
+    }
+
+    public function createUser($user,$password,$mail){
+
+        $userModel      = new UserModel();
+        $hashpassword   = password_hash($passwordu,PASSWORD_DEFAULT);
+        $dataU          = [
+            'username'  => $user,
+            'passwordu' => $hashpassword,
+            'mail'      => $mail,
+            'image'     => $user.'.jpg'
+        ];
+
+        $userModel->insert($dataU);
+
     }
 
     public function register(){
@@ -151,14 +224,14 @@ class Dashboard extends BaseController{
             'passwordu' => 'required',
             'mail'      => 'required'
         ],[
-            'username' =>[
+            'username'  =>[
                  'required' => 'User is required!'
             ],
             'passwordu' =>[
                  'required' => 'Password is required!'
             ],
-            'mail' =>[
-                'required' => 'Email is required!'
+            'mail'      =>[
+                'required'  => 'Email is required!'
             ]
         ]);
 
@@ -166,34 +239,21 @@ class Dashboard extends BaseController{
 
             if($validation->withRequest($this->request)->run()){
 
-                $userModel = new UserModel();
-
-                $_POST['passwordu'] = password_hash($_POST['passwordu'],PASSWORD_DEFAULT);
-
                 $file = $this->request->getFile('image');
 
                 if($file->isValid()){
 
                     $file->move(ROOTPATH.'public/assets/images/avatars/',$_POST['username'].'.jpg');
 
-                    $dataU = [
-                     	'username'  => $_POST['username'],
-                     	'passwordu' => $_POST['passwordu'],
-                     	'mail'      => $_POST['mail'],
-                        'image'     => $_POST['username'].'.jpg'
-                     ];
-
-                    $userModel->insert($dataU);
-                    $res = $userModel->where('username',$_POST['username'])->find();
-
-                    $_SESSION['user']['username']   = $_POST['username'];
-                    $_SESSION['user']['iduser']     = $res[0]['iduser'];
+                    $this->createUser($_POST['username'],$_POST['passwordu'],$_POST['mail']);
+                    
+                    $this->createUserSession($_POST['username']);
 
                     return redirect()->to(base_url());
                 }
             }else{
+
                 $errors = $validation->getErrors();
-                print_r($errors);
                 $data['error'] = $errors;
                 $this->loadViews('register',$data);
             }
@@ -210,11 +270,63 @@ class Dashboard extends BaseController{
         return redirect()->to('dashboard/login');
     }
 
-    public function uploadPost(){
+    public function getCategories(){
 
-        $categories = new CategoriesModel();
+        $categoriesModel    = new CategoriesModel();
+        $categories         = $categoriesModel->findAll();
+
+        return $categories;
+
+    }
+
+    public function createPost($banner,$title,$intro,$contentp,$category,$author){
+
         $postModel  = new PostsModel();
+        $dataPost   = [
+                'banner'        => $banner,
+                'title'         => $title,
+                'intro'         => $intro,
+                'contentp'      => $contentp,
+                'category'      => $category,
+                'created_at'    => date('Y-m-d'),
+                'author'        => $author,
+                'slug'          => url_title($title)
+        ];
+
+        $postModel->insert($dataPost);
+
+    }
+
+    public function getPostByTitle($title,$author){
+
+        $postModel      = new PostsModel();
+
+        $arrayDataPost  = array('title' => $title, 
+                               'author' => $author);
+
+        $postResult     = $postModel->where($arrayDataPost)
+                                    ->first();
+        return $postResult;
+
+    }
+
+    public function insertTags($title,$author,$tagsPost){
+
         $tagModel   = new TagsModel();
+        $res        = $this->getPostByTitle($title,$author);
+
+        foreach ($tagsPost as $tags){
+
+            $dataTag = [
+                'idpos'     => $res['idpost'],
+                'nametag'   => $tags
+            ];
+            $tagModel->insert($dataTag);
+        }
+
+    }
+
+    public function uploadPost(){
 
         helper(['url','form']);
         $validation = \Config\Services::validation();
@@ -239,7 +351,7 @@ class Dashboard extends BaseController{
             ]
         ]);
 
-        $data ['categories'] = $categories->findAll();
+        $data ['categories'] = $this->getCategories();
 
         if($_POST){
 
@@ -249,34 +361,16 @@ class Dashboard extends BaseController{
                 $fileName   = $file->getRandomName();
     
                 if($file->isValid()){
+
                     $file->move(ROOTPATH.'public/uploads',$fileName);
 
-                    $dataPost = [
-                        'banner'        => $fileName,
-                        'title'         => $_POST['title'],
-                        'intro'         => $_POST['intro'],
-                        'contentp'      => $_POST['contentp'],
-                        'category'      => $_POST['category'],
-                        'created_at'    => date('Y-m-d'),
-                        'author'        => $_SESSION['user']['iduser'],
-                        'slug'          => url_title(($_POST['title']))
-                    ];
+                    $this->createPost($fileName,$_POST['title'],$_POST['intro'],$_POST['contentp'],$_POST['category'],$_SESSION['user']['iduser']);
 
-                    $postModel->insert($dataPost);
+                    $this->insertTags($_POST['title'],$_SESSION['user']['iduser']);
 
-                    $array = array('title' => $_POST['title'], 'author' => $_SESSION['user']['iduser']);
+                    $res = $this->getPostByTitle($_POST['title'],$_SESSION['user']['iduser']);
 
-                    $res = $postModel->where($array)->find();
-
-                    foreach ($_POST['tags'] as $tags){
-
-                        $dataTag = [
-                            'idpos'     => $res[0]['idpost'],
-                            'nametag'   => $tags
-                        ];
-                        $tagModel->insert($dataTag);
-                    }
-                    return redirect()->to('dashboard/posts/'.$res[0]['slug'].'/'.$res[0]['idpost']);
+                    return redirect()->to('dashboard/posts/'.$res['slug'].'/'.$res['idpost']);
 
                 }else echo 'ERROR!';
 
@@ -289,17 +383,36 @@ class Dashboard extends BaseController{
         $this->loadViews('uploadPost',$data);
     }
 
+    public function getEmail($email){
+
+        $newsLModel     = new NewsLetterModel();
+        $emailRes       = $newsLModel->where('email',$email)
+                                     ->first();
+
+        return $emailRes;
+    }
+
+    public function insertEmail($email){
+
+        $newsLModel     = new NewsLetterModel();
+        $dataEmail      = [
+            'email'      => $email,
+            'added_at'   => date('Y-m-d')
+        ];
+
+        $newsLModel->insert($dataEmail);
+
+    }
+
     public function addNewsLetter(){
 
         if(isset($_POST['email'])){
 
-            $newsLModel = new NewsLetterModel();
-            $emails     = $newsLModel->where('email',$_POST['email'])->findAll();
+            $email = $this->getEmail($_POST['email']);
 
-            if(!$emails){
+            if(!$email){
 
-                $_POST['added_at'] = date('Y-m-d');
-                $newsLModel->insert($_POST);
+                $this->insertEmail($_POST['email']);
                 echo 'Welcome to our NewsLetter!';
 
             }else{
@@ -310,14 +423,59 @@ class Dashboard extends BaseController{
         }
     }
 
+    public function getComments($id){
+
+        $commentsModel  = new CommentsModel();
+
+        $comments       = $commentsModel->where('post',$id)
+                                        ->findAll();
+
+        return $comments;
+    }
+
+    public function countComments($id){
+
+        $resultComments  = $this->getComments($id);
+        $totalComments   = count($resultComments);
+
+        return $totalComments;
+
+    }
+
+    public function insertComment($id, $name, $email, $message){
+
+        $commentsModel = new CommentsModel();
+        $dataComment   = [
+            'post'      => $id,
+            'cname'     => $name,
+            'cemail'    => $email,
+            'cmessage'  => $message,
+            'added_m'   => date('Y-m-d')
+        ];
+
+        $commentsModel->insert($dataComment);
+    }
+
+    public function getPostById($id){
+
+        $postsModel = new PostsModel();
+
+        $post       = $postsModel->select('*')
+                                 ->join('users',      'users.iduser = posts.author')
+                                 ->join('categories', 'categories.idcat = posts.category')
+                                 ->join('tags',       'tags.idpos = posts.idpost')
+                                 ->where('idpost',$id)
+                                 ->find();
+
+        return $post;
+    }
+
     public function posts($slug = null, $id = null){
 
         if($slug && $id){
 
-            $commentsModel = new CommentsModel();
-
-            $data['comments']       = $commentsModel->where('post',$id)->findAll();
-            $data['countcomments']  = $commentsModel->where('post',$id)->countAllResults();
+            $data['comments']       = $this->getComments($id);
+            $data['countcomments']  = $this->countComments($id);
 
             if($_POST){
                 
@@ -342,57 +500,71 @@ class Dashboard extends BaseController{
 
                 if($validation->withRequest($this->request)->run()){
 
-                    $_POST['post']      = $id;
-                    $_POST['added_m']   = date('Y-m-d');
-                    
-                    $commentsModel->insert($_POST);
+                    $this->insertComment($id,$_POST['cname'],$_POST['cemail'],$_POST['cmessage']);
+
                     return redirect()->to(current_url());
 
                 }else{
+
                     $errors = $validation->getErrors();
-                    print_r($errors);
                     $data['error'] = $errors;
                 }
             }
 
-            $postsModel = new PostsModel();
+            $post = $this->getPostById($id);
 
-            $posts = $postsModel->select('*')
-                                ->join('users', 'users.iduser = posts.author')
-                                ->join('categories', 'categories.idcat = posts.category')
-                                ->join('tags', 'tags.idpos = posts.idpost')
-                                ->where('idpost',$id)
-                                ->find();
-
-            $data['posts'] = $posts;
+            $data['posts'] = $post;
             $this->loadViews('post',$data);
         }
     }
 
-    public function category($id = null){
+    public function getPostByCategory($category){
+
+        $postsModel = new PostsModel();
+
+        $posts      = $postsModel->where('category',$category)
+                                 ->find();
+
+        return $posts;
+    }
+
+    public function getCategory($idCategory){
+
+        $categoryModel  = new CategoriesModel();
+
+        $category       = $categoryModel->where('idcat',$idCategory)
+                                        ->first();
+
+        return $category;
+    }
+
+    public function getPostByCategoryWithLimit($id,$cat_Pages,$begin){
 
         $postsModel     = new PostsModel();
-        $categoryModel  = new CategoriesModel();
+
+        $result         = $postsModel->where('category',$id)
+                                     ->limit($cat_Pages,$begin)
+                                     ->find();
+
+        return $result;
+
+    }
+
+    public function category($id = null){
 
         if(!$_GET){
             $_GET['page'] = 1;
         }
 
-        $result = $postsModel->where('category',$id)
-                             ->find();
+        $result     = $this->getPostByCategory($id);
         $cat_Pages  = 6;
         $totalcatDB = count($result);
         $pages      = ceil($totalcatDB / $cat_Pages);
         $begin      = ($_GET['page'] - 1) * $cat_Pages;
 
-        $category = $categoryModel->select('*')
-                                  ->where('idcat',$id)
-                                  ->find();
 
-        $data['category']   = $category;
-        $data['posts']      = $postsModel->where('category',$id)
-                                         ->limit($cat_Pages,$begin)
-                                         ->find();
+        $data['category']   = $this->getCategory($id);
+        $data['posts']      = $this->getPostByCategoryWithLimit($id,$cat_Pages,$begin);
         $data['pages']      = $pages;
 
         $this->loadViews('category',$data);
